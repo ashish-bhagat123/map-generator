@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Procedural Battlefield Map Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            overflow: hidden;
+            background: #2a2a2a;
+            color: #fff;
+        }
+        
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #controls {
+            width: 400px;
+            background: #1a1a1a;
+            padding: 20px;
+            overflow-y: auto;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+        
+        .control-section {
+            background: #2a2a2a;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        
+        .control-section h3 {
+            margin-top: 0;
+            color: #4a9eff;
+            border-bottom: 1px solid #444;
+            padding-bottom: 8px;
+        }
+        
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-size: 14px;
+        }
+        
+        input[type="number"],
+        input[type="text"],
+        input[type="color"],
+        input[type="range"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #444;
+            border-radius: 3px;
+            background: #3a3a3a;
+            color: #fff;
+            box-sizing: border-box;
+        }
+        
+        input[type="range"] {
+            padding: 0;
+            height: 30px;
+        }
+        
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            width: 100%;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #3a8eef;
+        }
+        
+        button.danger {
+            background: #ff4444;
+        }
+        
+        button.success {
+            background: #44ff44;
+            color: #000;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .input-group label {
+            margin: 0;
+            flex: 1;
+            font-size: 12px;
+        }
+        
+        .input-group input,
+        .input-group select {
+            flex: 2;
+            margin: 0;
+        }
+        
+        .battlefield-type {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .type-button {
+            background: #3a3a3a;
+            border: 2px solid #444;
+            padding: 15px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            font-size: 12px;
+        }
+        
+        .type-button.active {
+            background: #4a9eff;
+            border-color: #4a9eff;
+        }
+        
+        .generated-features {
+            background: #3a3a3a;
+            padding: 10px;
+            border-radius: 3px;
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .feature-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            margin: 2px 0;
+            background: #2a2a2a;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .feature-icon {
+            font-size: 16px;
+            margin-right: 8px;
+        }
+        
+        #status {
+            position: fixed;
+            bottom: 10px;
+            right: 420px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #4a9eff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 1000;
+        }
+        
+        .slider-container {
+            margin: 10px 0;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .coordinates-display {
+            background: #3a3a3a;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="controls">
+        <div class="control-section">
+            <h3>🎯 Quick Generate</h3>
+            <div style="margin: 10px 0; padding: 10px; background: #3a3a3a; border-radius: 3px; font-size: 11px;">
+                <div class="battlefield-type">
+                    <div class="type-button active" data-type="plains">🌾 Plains</div>
+                    <div class="type-button" data-type="hills">🏔️ Hills</div>
+                    <div class="type-button" data-type="forest">🌲 Forest</div>
+                    <div class="type-button" data-type="river">🌊 River</div>
+                    <div class="type-button" data-type="indoor">🏠 Indoor</div>
+                    <div class="type-button" data-type="city">🌆 City</div>
+                </div>
+                <button id="quickGenerate">🎲 Quick Generate</button>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>🎯 Map Configuration</h3>
+            
+            <div class="input-group">
+                <label>Map Size:</label>
+                <select id="mapSize">
+                    <option value="small">Small (5x5)</option>
+                    <option value="medium" selected>Medium (10x10)</option>
+                    <option value="large">Large (15x15)</option>
+                </select>
+            </div>
+            
+            <div class="slider-container">
+                <div class="slider-label">
+                    <span>Terrain Complexity</span>
+                    <span id="complexityValue">50%</span>
+                </div>
+                <input type="range" id="complexity" min="0" max="100" value="50">
+            </div>
+            
+            <div class="slider-container">
+                <div class="slider-label">
+                    <span>Strategic Zones</span>
+                    <span id="zonesValue">5</span>
+                </div>
+                <input type="range" id="zoneCount" min="3" max="8" value="5">
+            </div>
+            
+            <button id="regenerateTerrain">🔄 Regenerate Terrain</button>
+            <button id="regenerateZones">🎯 Regenerate Zones</button>
+        </div>
+        
+        <div class="control-section">
+            <h3>🎯 Edit Mode</h3>
+            <div class="input-group">
+                <label>Mode:</label>
+                <select id="editMode">
+                    <option value="view">👁️ View</option>
+                    <option value="terrain">🌍 Paint Terrain</option>
+                    <option value="objects">🏛️ Place Objects</option>
+                    <option value="zones">🗺️ Edit Zones</option>
+                </select>
+            </div>
+            
+            <div id="terrainControls" style="display: none;">
+                <div class="input-group">
+                    <label>Terrain:</label>
+                    <select id="terrainType">
+                        <option value="clear">Clear</option>
+                        <option value="forest">Forest</option>
+                        <option value="hills">Hills</option>
+                        <option value="water">Water</option>
+                        <option value="road">Road</option>
+                        <option value="urban">Urban</option>
+                        <option value="swamp">Swamp</option>
+                        <option value="room">Room</option>
+                        <option value="street">Street</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Brush Size:</label>
+                    <input type="number" id="brushSize" value="2" min="1" max="5">
+                </div>
+            </div>
+            
+            <div id="objectControls" style="display: none;">
+                <div class="input-group">
+                    <label>Object Type:</label>
+                    <select id="objectType">
+                        <option value="landmark">🏛️ Landmark</option>
+                        <option value="building">🏠 Building</option>
+                        <option value="military">⚔️ Military</option>
+                        <option value="nature">🌲 Nature</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label>Size:</label>
+                    <input type="range" id="objectSize" min="0.5" max="2" value="1" step="0.1">
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>📋 Generated Features</h3>
+            <div class="generated-features" id="featuresList">
+                <div class="feature-item">Generate a battlefield to see features</div>
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>📍 Mouse Position</h3>
+            <div class="coordinates-display" id="coordinates">
+                Hex: None<br>
+                Pixel: (0, 0)<br>
+                Terrain: -
+            </div>
+        </div>
+        
+        <div class="control-section">
+            <h3>💾 Export</h3>
+            <button id="exportJson">📄 Export JSON</button>
+            <button id="exportImage">🖼️ Export PNG</button>
+            <textarea id="mapData" placeholder="Generated map data will appear here..." style="height: 100px; font-size: 10px;"></textarea>
+        </div>
+    </div>
+    
+    <div id="status">Ready - Load JSON or Quick Generate to start</div>
+    
+    <script>
+        // Global variables
+        let hexGrid = [];
+        let placedObjects = [];
+        let strategicZones = [];
+        let battlefieldType = 'plains';
+        let mapWidth = 50;
+        let mapHeight = 40;
+        let hexSize = 15;
+        let editMode = 'view';
+        let selectedHex = null;
+        
+        // View controls
+        let viewOffset = { x: 0, y: 0 };
+        let viewScale = 1;
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        
+        // Terrain colors
+        const terrainColors = {
+            clear: '#90EE90',
+            forest: '#228B22',
+            hills: '#CD853F',
+            water: '#4682B4',
+            road: '#8B7355',
+            urban: '#A9A9A9',
+            swamp: '#556B2F',
+            bridge: '#8B4513',
+            room: '#DEB887',    // Wooden floor
+            corridor: '#D2B48C', // Lighter wooden floor
+            carpet: '#8B4513',   // Dark red carpet
+            tile: '#F5F5DC',    // Beige tile
+            marble: '#E6E6FA'    // Light marble floor
+        };
+        
+        // Object types with emojis
+        const objectEmojis = {
+            landmark: ['🏛️', '⛪', '🏰', '🗿', '🕌'],
+            building: ['🏠', '🏪', '🏭', '🏫', '🏥'],
+            military: ['⚔️', '🛡️', '🔫', '⛺', '🎯'],
+            nature: ['🌲', '🌳', '🗻', '🌾', '🌊']
+        };
+        
+        // Strategic zone names
+        const zoneNames = [
+            'Cemetery Hill', 'Seminary Ridge', 'Little Round Top', 'Big Round Top',
+            'Devil\'s Den', 'Peach Orchard', 'Wheatfield', 'Culp\'s Hill',
+            'Cemetery Ridge', 'McPherson Ridge', 'Oak Hill', 'Benner Hill'
+        ];
+        
+        function setup() {
+            const canvas = createCanvas(windowWidth - 400, windowHeight);
+            canvas.parent('canvas-container');
+            
+            setupEventListeners();
+            updateSliderValues();
+            noLoop();
+        }
+        
+        function draw() {
+            background(40);
+            
+            push();
+            translate(viewOffset.x, viewOffset.y);
+            scale(viewScale);
+            
+            // Draw hex grid
+            drawHexGrid();
+            
+            // Draw strategic zones
+            drawStrategicZones();
+            
+            // Draw objects
+            drawObjects();
+            
+            // Draw selection
+            if (selectedHex) {
+                drawHexSelection(selectedHex);
+            }
+            
+            pop();
+            
+            // Draw UI
+            drawUI();
+        }
+        
+        function drawHexGrid() {
+            // Use pointy-top hexagon measurements
+            const width = hexSize * Math.sqrt(3);
+            const height = hexSize * 2;
+            
+            // Spacing for pointy-top hexagons
+            const horzSpacing = width;
+            const vertSpacing = height * 3/4;
+            
+            for (let hex of hexGrid) {
+                // Calculate position with proper offset coordinates for pointy-top
+                const x = hex.col * horzSpacing + (hex.row % 2) * (horzSpacing/2);
+                const y = hex.row * vertSpacing;
+                
+                // Fill based on terrain
+                fill(terrainColors[hex.terrain] || terrainColors.clear);
+                stroke(255, 255, 255, 100);
+                strokeWeight(0.5 / viewScale);
+                
+                push();
+                translate(x, y);
+                drawHexagon(0, 0, hexSize);
+                pop();
+                
+                // Store precise screen position for click detection
+                hex.screenX = x;
+                hex.screenY = y;
+            }
+        }
+        
+        function drawStrategicZones() {
+            for (let zone of strategicZones) {
+                fill(zone.color + '40');
+                stroke(zone.color);
+                strokeWeight(2 / viewScale);
+                
+                for (let hexCoord of zone.hexes) {
+                    const hex = getHex(hexCoord.col, hexCoord.row);
+                    if (hex) {
+                        push();
+                        translate(hex.screenX, hex.screenY);
+                        drawHexagon(0, 0, hexSize);
+                        pop();
+                    }
+                }
+                
+                // Draw zone label
+                if (zone.hexes.length > 0) {
+                    const centerHex = getHex(zone.hexes[0].col, zone.hexes[0].row);
+                    if (centerHex) {
+                        fill(255);
+                        noStroke();
+                        textAlign(CENTER, CENTER);
+                        textSize(8 / viewScale);
+                        text(zone.name, centerHex.screenX, centerHex.screenY);
+                    }
+                }
+            }
+        }
+        
+        function drawObjects() {
+            for (let obj of placedObjects) {
+                push();
+                translate(obj.x, obj.y);
+                scale(obj.size);
+                
+                fill(255);
+                noStroke();
+                textAlign(CENTER, CENTER);
+                textSize(20 / viewScale);
+                text(obj.emoji, 0, 0);
+                
+                pop();
+            }
+        }
+        
+        function drawHexSelection(hex) {
+            push();
+            translate(hex.screenX, hex.screenY);
+            
+            noFill();
+            stroke(255, 255, 0);
+            strokeWeight(3 / viewScale);
+            drawHexagon(0, 0, hexSize);
+            
+            pop();
+        }
+        
+        function drawHexagon(x, y, size) {
+            beginShape();
+            for (let i = 0; i < 6; i++) {
+                const angle = PI / 3 * i + PI / 6; // Start at 30 degrees for pointy-top
+                const px = x + size * cos(angle);
+                const py = y + size * sin(angle);
+                vertex(px, py);
+            }
+            endShape(CLOSE);
+        }
+        
+        function drawUI() {
+            // Draw mode indicator
+            fill(0, 0, 0, 150);
+            rect(10, 10, 150, 30);
+            fill(255);
+            textAlign(LEFT, CENTER);
+            textSize(14);
+            text(`Mode: ${editMode.toUpperCase()}`, 20, 25);
+            
+            // Draw crosshair for object placement
+            if (editMode === 'objects') {
+                stroke(255, 255, 0, 150);
+                strokeWeight(1);
+                line(mouseX - 10, mouseY, mouseX + 10, mouseY);
+                line(mouseX, mouseY - 10, mouseX, mouseY + 10);
+            }
+        }
+        
+        // JSON Loading and Management
+        function loadMapFromJson() {
+            try {
+                const jsonData = document.getElementById('initialMapData').value.trim();
+                if (!jsonData) {
+                    updateStatus('Please paste JSON data first');
+                    return;
+                }
+                
+                const mapData = JSON.parse(jsonData);
+                
+                // Load metadata
+                if (mapData.metadata) {
+                    if (mapData.metadata.size) {
+                        const [w, h] = mapData.metadata.size.split('x').map(Number);
+                        mapWidth = w;
+                        mapHeight = h;
+                    }
+                    if (mapData.metadata.type) {
+                        battlefieldType = mapData.metadata.type;
+                        // Update UI
+                        document.querySelectorAll('.type-button').forEach(btn => {
+                            btn.classList.toggle('active', btn.dataset.type === battlefieldType);
+                        });
+                    }
+                }
+                
+                // Load hex grid
+                hexGrid = [];
+                if (mapData.hexes && mapData.hexes.length > 0) {
+                    for (let hexData of mapData.hexes) {
+                        hexGrid.push({
+                            col: hexData.q || hexData.col || 0,
+                            row: hexData.r || hexData.row || 0,
+                            terrain: hexData.terrain || 'clear',
+                            elevation: hexData.elevation || 0,
+                            zoneId: hexData.zoneId || null,
+                            screenX: 0,
+                            screenY: 0
+                        });
+                    }
+                } else {
+                    // Generate basic grid if no hexes provided
+                    generateHexGrid();
+                }
+                
+                // Load strategic zones
+                strategicZones = [];
+                if (mapData.strategicZones) {
+                    for (let zoneData of mapData.strategicZones) {
+                        strategicZones.push({
+                            id: zoneData.id,
+                            name: zoneData.name,
+                            color: zoneData.color || `hsl(${random(360)}, 70%, 50%)`,
+                            strategicValue: zoneData.strategicValue || 5,
+                            hexes: zoneData.hexes || [],
+                            isSupplyHub: zoneData.properties?.isSupplyHub || false,
+                            isObservationPost: zoneData.properties?.isObservationPost || false,
+                            hasDefenseBonus: zoneData.properties?.hasDefenseBonus || false
+                        });
+                    }
+                }
+                
+                // Load objects
+                placedObjects = [];
+                if (mapData.objects) {
+                    for (let objData of mapData.objects) {
+                        // Find hex position for object
+                        let objHex = null;
+                        if (objData.coordinates?.hex) {
+                            objHex = getHex(objData.coordinates.hex.col, objData.coordinates.hex.row);
+                        }
+                        
+                        placedObjects.push({
+                            id: objData.id,
+                            emoji: objData.emoji || '🏛️',
+                            name: objData.name || 'Unnamed Object',
+                            type: objData.type || 'landmark',
+                            x: objHex ? objHex.screenX : (objData.coordinates?.pixel?.x || 0),
+                            y: objHex ? objHex.screenY : (objData.coordinates?.pixel?.y || 0),
+                            size: objData.properties?.size || 1,
+                            hexCol: objData.coordinates?.hex?.col,
+                            hexRow: objData.coordinates?.hex?.row
+                        });
+                    }
+                }
+                
+                // Update UI
+                autoFitView();
+                updateFeaturesList();
+                updateMapData();
+                updateStatus(`Map loaded: ${mapData.metadata?.name || 'Unnamed Map'}`);
+                redraw();
+                
+            } catch (error) {
+                updateStatus(`Error loading JSON: ${error.message}`);
+                console.error('JSON Load Error:', error);
+            }
+        }
+        
+        function quickGenerate() {
+            generateBattlefield();
+        }
+        
+        function generateBattlefield() {
+            updateStatus('Generating battlefield...');
+            
+            // Get settings
+            const size = document.getElementById('mapSize').value;
+            const complexity = parseInt(document.getElementById('complexity').value);
+            const zoneCount = parseInt(document.getElementById('zoneCount').value);
+            
+            // Set map dimensions
+            switch (size) {
+                case 'small': mapWidth = 5; mapHeight = 5; break;
+                case 'medium': mapWidth = 10; mapHeight = 10; break;
+                case 'large': mapWidth = 15; mapHeight = 15; break;
+            }
+            
+            // Generate hex grid
+            generateHexGrid();
+            
+            // Generate terrain based on type
+            generateTerrain(complexity);
+            
+            // Generate strategic zones
+            generateStrategicZones(zoneCount);
+            
+            // Generate objects
+            generateObjects();
+            
+            // Auto-fit view
+            autoFitView();
+            
+            updateFeaturesList();
+            updateMapData();
+            updateStatus('Battlefield generated successfully!');
+            redraw();
+        }
+        
+        function generateHexGrid() {
+            hexGrid = [];
+            
+            for (let row = 0; row < mapHeight; row++) {
+                for (let col = 0; col < mapWidth; col++) {
+                    hexGrid.push({
+                        col: col,
+                        row: row,
+                        terrain: 'clear',
+                        elevation: 0,
+                        zoneId: null,
+                        screenX: 0,
+                        screenY: 0
+                    });
+                }
+            }
+        }
+        
+        function generateTerrain(complexity) {
+            const noiseScale = 0.1;
+            const complexityFactor = complexity / 100;
+            
+            for (let hex of hexGrid) {
+                // Create our own simple noise function since p5.js noise() may not be ready yet
+                const noiseValue = simpleNoise(hex.col * noiseScale, hex.row * noiseScale);
+                const distanceFromCenter = dist(hex.col, hex.row, mapWidth/2, mapHeight/2);
+                const normalizedDistance = distanceFromCenter / (Math.max(mapWidth, mapHeight) / 2);
+                
+                // Base terrain on battlefield type and noise
+                if (battlefieldType === 'plains') {
+                    if (noiseValue > 0.7 && complexityFactor > 0.3) {
+                        hex.terrain = 'forest';
+                    } else if (noiseValue < 0.3 && complexityFactor > 0.5) {
+                        hex.terrain = 'hills';
+                    } else {
+                        hex.terrain = 'clear';
+                    }
+                } else if (battlefieldType === 'hills') {
+                    if (noiseValue > 0.6) {
+                        hex.terrain = 'hills';
+                    } else if (noiseValue > 0.4 && complexityFactor > 0.4) {
+                        hex.terrain = 'forest';
+                    } else {
+                        hex.terrain = 'clear';
+                    }
+                } else if (battlefieldType === 'forest') {
+                    if (noiseValue > 0.4) {
+                        hex.terrain = 'forest';
+                    } else if (noiseValue < 0.2) {
+                        hex.terrain = 'clear';
+                    } else {
+                        hex.terrain = 'clear';
+                    }
+                } else if (battlefieldType === 'river') {
+                    // Create a river running through the middle
+                    const riverDistance = Math.abs(hex.row - mapHeight/2);
+                    if (riverDistance < 2 + noiseValue * 3) {
+                        hex.terrain = 'water';
+                    } else if (riverDistance < 4 && noiseValue > 0.6) {
+                        hex.terrain = 'swamp';
+                    } else if (noiseValue > 0.7) {
+                        hex.terrain = 'forest';
+                    } else {
+                        hex.terrain = 'clear';
+                    }
+                } else if (battlefieldType === 'indoor') {
+                    // Clear terrain first for indoor areas
+                    hex.terrain = 'tile'; // Default indoor floor
+
+                    // Create marble pattern using noise
+                    if (noiseValue > 0.7) {
+                        hex.terrain = 'marble';
+                    } else if (noiseValue < 0.3) {
+                        hex.terrain = 'carpet';
+                    }
+
+                    // Generate indoor structure at center
+                    if (hex.col === Math.floor(mapWidth/2) && hex.row === Math.floor(mapHeight/2)) {
+                        generateIndoorHouse(hex.col, hex.row, Math.floor(mapWidth/4));
+                    }
+                } else if (battlefieldType === 'city') {
+                    // Create a city layout centered on the map
+                    if (hex.col === Math.floor(mapWidth/2) && hex.row === Math.floor(mapHeight/2)) {
+                        generateCity(hex.col, hex.row, Math.floor(mapWidth/4));
+                    }
+                }
+                
+                // Add some roads
+                if (random() < 0.02 * complexityFactor) {
+                    hex.terrain = 'road';
+                }
+                
+                // Set elevation
+                hex.elevation = Math.floor(noiseValue * 3);
+            }
+            
+            // Add some urban areas
+            if (complexityFactor > 0.3) {
+                addUrbanAreas();
+            }
+        }
+        
+        function addUrbanAreas() {
+            const urbanCenters = random(1, 3);
+            
+            for (let i = 0; i < urbanCenters; i++) {
+                const centerCol = Math.floor(random(5, mapWidth - 5));
+                const centerRow = Math.floor(random(5, mapHeight - 5));
+                const size = Math.floor(random(3, 7));
+                
+                if (random() < 0.5) {
+                    // Generate city with streets and buildings
+                    generateCity(centerCol, centerRow, size);
+                } else {
+                    // Generate single large building
+                    generateIndoorHouse(centerCol, centerRow, size);
+                }
+            }
+        }
+        
+        function generateIndoorHouse(centerCol, centerRow, size) {
+            const rooms = Math.floor(random(3, 6));
+            const usedPositions = new Set();
+            
+            // Place central room
+            const centerHex = getHex(centerCol, centerRow);
+            if (centerHex) {
+                centerHex.terrain = 'room';
+                usedPositions.add(`${centerCol},${centerRow}`);
+            }
+            
+            // Add additional rooms
+            for (let i = 0; i < rooms - 1; i++) {
+                const startHex = getHex(centerCol + random(-size, size), centerRow + random(-size, size));
+                if (startHex && !usedPositions.has(`${startHex.col},${startHex.row}`)) {
+                    startHex.terrain = random() > 0.5 ? 'room' : 'marble';
+                    usedPositions.add(`${startHex.col},${startHex.row}`);
+                    
+                    // Add connecting corridors with carpet
+                    const path = findPath(centerHex, startHex);
+                    for (let pathHex of path) {
+                        if (pathHex !== startHex && pathHex !== centerHex) {
+                            pathHex.terrain = 'corridor';
+                        }
+                    }
+                }
+            }
+        }
+        
+        function generateCity(centerCol, centerRow, size) {
+            const buildings = Math.floor(random(5, 10));
+            const streets = new Set();
+            
+            // Generate main streets
+            for (let i = -size; i <= size; i++) {
+                for (let j = -size; j <= size; j++) {
+                    if (Math.abs(i) === Math.abs(j) || i === 0 || j === 0) {
+                        const hex = getHex(centerCol + i, centerRow + j);
+                        if (hex) {
+                            hex.terrain = 'street';
+                            streets.add(`${hex.col},${hex.row}`);
+                        }
+                    }
+                }
+            }
+            
+            // Place buildings (groups of room tiles)
+            for (let i = 0; i < buildings; i++) {
+                const buildingCol = centerCol + Math.floor(random(-size + 1, size - 1));
+                const buildingRow = centerRow + Math.floor(random(-size + 1, size - 1));
+                
+                if (!streets.has(`${buildingCol},${buildingRow}`)) {
+                    generateIndoorHouse(buildingCol, buildingRow, 2);
+                }
+            }
+        }
+        
+        // Helper function to find path between hexes (simple implementation)
+        function findPath(startHex, endHex) {
+            const path = [startHex];
+            let currentHex = startHex;
+            
+            while (currentHex !== endHex) {
+                const neighbors = getNeighbors(currentHex.col, currentHex.row);
+                let bestNeighbor = neighbors[0];
+                let bestDistance = Infinity;
+                
+                for (let neighbor of neighbors) {
+                    const distance = dist(neighbor.col, neighbor.row, endHex.col, endHex.row);
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        bestNeighbor = neighbor;
+                    }
+                }
+                
+                if (!bestNeighbor || path.includes(bestNeighbor)) break;
+                path.push(bestNeighbor);
+                currentHex = bestNeighbor;
+            }
+            
+            return path;
+        }
+        
+        function generateObjects() {
+            placedObjects = [];
+            
+            // Place landmarks
+            for (let zone of strategicZones) {
+                if (zone.hexes.length > 0 && random() < 0.8) {
+                    const centerHex = getHex(zone.hexes[0].col, zone.hexes[0].row);
+                    if (centerHex) {
+                        const emojis = objectEmojis.landmark;
+                        placedObjects.push({
+                            id: `landmark_${zone.id}`,
+                            emoji: emojis[Math.floor(random(emojis.length))],
+                            name: zone.name + ' Monument',
+                            type: 'landmark',
+                            x: centerHex.screenX,
+                            y: centerHex.screenY,
+                            size: random(1, 1.5),
+                            zoneId: zone.id
+                        });
+                    }
+                }
+            }
+            
+            // Add random objects
+            const objectCount = Math.floor(random(5, 15));
+            for (let i = 0; i < objectCount; i++) {
+                const hex = hexGrid[Math.floor(random(hexGrid.length))];
+                const types = Object.keys(objectEmojis);
+                const type = types[Math.floor(random(types.length))];
+                const emojis = objectEmojis[type];
+                
+                placedObjects.push({
+                    id: `obj_${i}`,
+                    emoji: emojis[Math.floor(random(emojis.length))],
+                    name: `${type} ${i + 1}`,
+                    type: type,
+                    x: hex.screenX,
+                    y: hex.screenY,
+                    size: random(0.8, 1.2)
+                });
+            }
+        }
+        
+        // Utility functions
+        function getHex(col, row) {
+            return hexGrid.find(hex => hex.col === col && hex.row === row);
+        }
+        
+        function getNeighbors(col, row) {
+            const neighbors = [];
+            // Proper hex neighbor offsets for pointy-top orientation
+            const evenRowOffsets = [[-1, -1], [0, -1], [1, 0], [0, 1], [-1, 1], [-1, 0]];
+            const oddRowOffsets = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 0]];
+            
+            const offsets = (row % 2 === 0) ? evenRowOffsets : oddRowOffsets;
+            
+            for (let [dc, dr] of offsets) {
+                const neighbor = getHex(col + dc, row + dr);
+                if (neighbor) neighbors.push(neighbor);
+            }
+            
+            return neighbors;
+        }
+        
+        function getHexAtPosition(x, y) {
+            const worldPos = screenToWorld(x, y);
+            let closestHex = null;
+            let minDistance = Infinity;
+            
+            for (let hex of hexGrid) {
+                const distance = dist(worldPos.x, worldPos.y, hex.screenX, hex.screenY);
+                if (distance < hexSize && distance < minDistance) {
+                    minDistance = distance;
+                    closestHex = hex;
+                }
+            }
+            
+            return closestHex;
+        }
+        
+        function screenToWorld(screenX, screenY) {
+            return {
+                x: (screenX - viewOffset.x) / viewScale,
+                y: (screenY - viewOffset.y) / viewScale
+            };
+        }
+        
+        function autoFitView() {
+            const hexWidth = hexSize * Math.sqrt(3);
+            const hexHeight = hexSize * 2;
+            const vertSpacing = hexHeight * 0.75;
+            const horzSpacing = hexWidth;
+            
+            // Calculate total map dimensions with precise spacing
+            const totalWidth = (mapWidth - 1) * horzSpacing + horzSpacing/2;
+            const totalHeight = (mapHeight - 1) * vertSpacing + hexHeight;
+            
+            const scaleX = (width - 40) / totalWidth;
+            const scaleY = (height - 40) / totalHeight;
+            viewScale = Math.min(scaleX, scaleY, 1);
+            
+            viewOffset.x = (width - totalWidth * viewScale) / 2;
+            viewOffset.y = (height - totalHeight * viewScale) / 2;
+        }
+        
+        // Event handlers
+        function mouseMoved() {
+            updateCoordinatesDisplay();
+            redraw();
+        }
+        
+        function mousePressed() {
+            if (mouseX >= width) return;
+            
+            if (mouseButton === RIGHT) {
+                isDragging = true;
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+                return;
+            }
+            
+            const hex = getHexAtPosition(mouseX, mouseY);
+            if (!hex) return;
+            
+            selectedHex = hex;
+            
+            if (editMode === 'terrain') {
+                paintTerrain(hex);
+            } else if (editMode === 'objects') {
+                placeObject(hex);
+            }
+            
+            updateCoordinatesDisplay();
+            redraw();
+        }
+        
+        function mouseDragged() {
+            if (isDragging) {
+                viewOffset.x += mouseX - lastMouseX;
+                viewOffset.y += mouseY - lastMouseY;
+                lastMouseX = mouseX;
+                lastMouseY = mouseY;
+                redraw();
+            } else if (editMode === 'terrain') {
+                const hex = getHexAtPosition(mouseX, mouseY);
+                if (hex) {
+                    paintTerrain(hex);
+                    redraw();
+                }
+            }
+        }
+        
+        function mouseReleased() {
+            isDragging = false;
+        }
+        
+        function mouseWheel(event) {
+            if (mouseX >= width) return;
+            
+            const scaleFactor = event.delta > 0 ? 0.9 : 1.1;
+            const mouseXBefore = (mouseX - viewOffset.x) / viewScale;
+            const mouseYBefore = (mouseY - viewOffset.y) / viewScale;
+            
+            viewScale *= scaleFactor;
+            viewScale = constrain(viewScale, 0.1, 3);
+            
+            const mouseXAfter = (mouseX - viewOffset.x) / viewScale;
+            const mouseYAfter = (mouseY - viewOffset.y) / viewScale;
+            
+            viewOffset.x += (mouseXAfter - mouseXBefore) * viewScale;
+            viewOffset.y += (mouseYAfter - mouseYBefore) * viewScale;
+            
+            redraw();
+            return false;
+        }
+        
+        function paintTerrain(hex) {
+            const terrainType = document.getElementById('terrainType').value;
+            const brushSize = parseInt(document.getElementById('brushSize').value);
+            
+            // Paint center hex
+            hex.terrain = terrainType;
+            
+            // Paint surrounding hexes based on brush size
+            if (brushSize > 1) {
+                const neighbors = getNeighbors(hex.col, hex.row);
+                for (let neighbor of neighbors) {
+                    if (random() < 0.7) {
+                        neighbor.terrain = terrainType;
+                    }
+                }
+                
+                if (brushSize > 2) {
+                    for (let neighbor of neighbors) {
+                        const secondLevel = getNeighbors(neighbor.col, neighbor.row);
+                        for (let secondNeighbor of secondLevel) {
+                            if (random() < 0.4) {
+                                secondNeighbor.terrain = terrainType;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        function placeObject(hex) {
+            const objectType = document.getElementById('objectType').value;
+            const objectSize = parseFloat(document.getElementById('objectSize').value);
+            const emojis = objectEmojis[objectType];
+            
+            // Remove existing object at this location
+            placedObjects = placedObjects.filter(obj => 
+                dist(obj.x, obj.y, hex.screenX, hex.screenY) > hexSize
+            );
+            
+            // Place new object
+            const obj = {
+                id: `obj_${Date.now()}`,
+                emoji: emojis[Math.floor(random(emojis.length))],
+                name: `${objectType} ${placedObjects.length + 1}`,
+                type: objectType,
+                x: hex.screenX,
+                y: hex.screenY,
+                size: objectSize,
+                hexCol: hex.col,
+                hexRow: hex.row
+            };
+            
+            placedObjects.push(obj);
+            updateFeaturesList();
+            updateMapData();
+        }
+        
+        function updateCoordinatesDisplay() {
+            const hex = getHexAtPosition(mouseX, mouseY);
+            const coordsEl = document.getElementById('coordinates');
+            
+            if (hex) {
+                coordsEl.innerHTML = `
+                    Hex: (${hex.col}, ${hex.row})<br>
+                    Pixel: (${Math.round(mouseX)}, ${Math.round(mouseY)})<br>
+                    Terrain: ${hex.terrain}
+                `;
+            } else {
+                coordsEl.innerHTML = `
+                    Hex: None<br>
+                    Pixel: (${Math.round(mouseX)}, ${Math.round(mouseY)})<br>
+                    Terrain: -
+                `;
+            }
+        }
+        
+        function updateFeaturesList() {
+            const featuresEl = document.getElementById('featuresList');
+            let html = '';
+            
+            // Strategic zones
+            html += '<div style="color: #4a9eff; font-weight: bold; margin-bottom: 5px;">Strategic Zones:</div>';
+            for (let zone of strategicZones) {
+                html += `<div class="feature-item">
+                    <div><span class="feature-icon">🎯</span>${zone.name}</div>
+                    <div style="font-size: 10px;">${zone.hexes.length} hexes</div>
+                </div>`;
+            }
+            
+            // Objects by type
+            const objectsByType = {};
+            for (let obj of placedObjects) {
+                if (!objectsByType[obj.type]) objectsByType[obj.type] = [];
+                objectsByType[obj.type].push(obj);
+            }
+            
+            html += '<div style="color: #4a9eff; font-weight: bold; margin: 10px 0 5px 0;">Objects:</div>';
+            for (let type in objectsByType) {
+                const count = objectsByType[type].length;
+                const emoji = objectsByType[type][0].emoji;
+                html += `<div class="feature-item">
+                    <div><span class="feature-icon">${emoji}</span>${type}s</div>
+                    <div style="font-size: 10px;">${count}</div>
+                </div>`;
+            }
+            
+            // Terrain statistics
+            const terrainStats = {};
+            for (let hex of hexGrid) {
+                terrainStats[hex.terrain] = (terrainStats[hex.terrain] || 0) + 1;
+            }
+            
+            html += '<div style="color: #4a9eff; font-weight: bold; margin: 10px 0 5px 0;">Terrain:</div>';
+            for (let terrain in terrainStats) {
+                const count = terrainStats[terrain];
+                const percentage = Math.round((count / hexGrid.length) * 100);
+                html += `<div class="feature-item">
+                    <div style="color: ${terrainColors[terrain]}">${terrain}</div>
+                    <div style="font-size: 10px;">${percentage}%</div>
+                </div>`;
+            }
+            
+            featuresEl.innerHTML = html;
+        }
+        
+        function updateMapData() {
+            const mapData = {
+                map_dimensions: {
+                    width: mapWidth,
+                    height: mapHeight
+                },
+                hex_data: hexGrid.map(hex => {
+                    // Convert internal terrain names to match sample format
+                    let terrainName = hex.terrain;
+                    switch(terrainName) {
+                        case 'hills': terrainName = 'Hill (Steep/Ridge)'; break;
+                        case 'forest': terrainName = 'Forest (Light)'; break;
+                        case 'urban': terrainName = 'Urban Area'; break;
+                        case 'water': terrainName = 'River (Impassable)'; break;
+                        case 'clear': terrainName = 'Clear'; break;
+                        default: terrainName = terrainName.charAt(0).toUpperCase() + terrainName.slice(1);
+                    }
+
+                    const hexData = {
+                        coord: `${hex.col},${hex.row}`,
+                        terrain: terrainName,
+                        elevation: hex.elevation || 1
+                    };
+
+                    // Only add landmark_id if there's an object on this hex
+                    const objectOnHex = placedObjects.find(obj => 
+                        obj.hexCol === hex.col && obj.hexRow === hex.row
+                    );
+                    if (objectOnHex) {
+                        hexData.landmark_id = `poi_${objectOnHex.type}_${objectOnHex.id}`;
+                    }
+
+                    return hexData;
+                })
+            };
+            
+            document.getElementById('mapData').value = JSON.stringify(mapData, null, 2);
+        }
+        
+        function updateSliderValues() {
+            const complexity = document.getElementById('complexity');
+            const complexityValue = document.getElementById('complexityValue');
+            const zones = document.getElementById('zoneCount');
+            const zonesValue = document.getElementById('zonesValue');
+            
+            complexityValue.textContent = complexity.value + '%';
+            zonesValue.textContent = zones.value;
+            
+            complexity.oninput = () => complexityValue.textContent = complexity.value + '%';
+            zones.oninput = () => zonesValue.textContent = zones.value;
+        }
+        
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            setTimeout(() => {
+                document.getElementById('status').textContent = 'Ready';
+            }, 3000);
+        }
+        
+        function setupEventListeners() {
+            // Battlefield type buttons
+            document.querySelectorAll('.type-button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.type-button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    battlefieldType = btn.dataset.type;
+                });
+            });
+            
+            // Load from JSON button
+            const loadBtn = document.getElementById('loadFromJson');
+            if (loadBtn) {
+                loadBtn.addEventListener('click', loadMapFromJson);
+            }
+            
+            // Quick generate button  
+            const quickBtn = document.getElementById('quickGenerate');
+            if (quickBtn) {
+                quickBtn.addEventListener('click', generateBattlefield);
+            }
+            
+            // Regenerate buttons
+            const regenTerrainBtn = document.getElementById('regenerateTerrain');
+            if (regenTerrainBtn) {
+                regenTerrainBtn.addEventListener('click', () => {
+                    const complexity = parseInt(document.getElementById('complexity').value);
+                    generateTerrain(complexity);
+                    updateFeaturesList();
+                    updateMapData();
+                    updateStatus('Terrain regenerated');
+                    redraw();
+                });
+            }
+            
+            const regenZonesBtn = document.getElementById('regenerateZones');
+            if (regenZonesBtn) {
+                regenZonesBtn.addEventListener('click', () => {
+                    // Clear existing zones
+                    for (let hex of hexGrid) {
+                        hex.zoneId = null;
+                    }
+                    
+                    const zoneCount = parseInt(document.getElementById('zoneCount').value);
+                    generateStrategicZones(zoneCount);
+                    updateFeaturesList();
+                    updateMapData();
+                    updateStatus('Strategic zones regenerated');
+                    redraw();
+                });
+            }
+            
+            // Edit mode change
+            const editModeSelect = document.getElementById('editMode');
+            if (editModeSelect) {
+                editModeSelect.addEventListener('change', (e) => {
+                    editMode = e.target.value;
+                    
+                    // Show/hide relevant controls
+                    const terrainControls = document.getElementById('terrainControls');
+                    const objectControls = document.getElementById('objectControls');
+                    
+                    if (terrainControls) {
+                        terrainControls.style.display = editMode === 'terrain' ? 'block' : 'none';
+                    }
+                    if (objectControls) {
+                        objectControls.style.display = editMode === 'objects' ? 'block' : 'none';
+                    }
+                    
+                    updateStatus(`Switched to ${editMode} mode`);
+                    redraw();
+                });
+            }
+            
+            // Export buttons
+            const exportJsonBtn = document.getElementById('exportJson');
+            if (exportJsonBtn) {
+                exportJsonBtn.addEventListener('click', () => {
+                    const data = document.getElementById('mapData').value;
+                    if (data) {
+                        const blob = new Blob([data], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `${battlefieldType}_battlefield_${new Date().toISOString().split('T')[0]}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        updateStatus('JSON exported successfully');
+                    }
+                });
+            }
+            
+            const exportImageBtn = document.getElementById('exportImage');
+            if (exportImageBtn) {
+                exportImageBtn.addEventListener('click', () => {
+                    saveCanvas(`${battlefieldType}_battlefield_${new Date().toISOString().split('T')[0]}`, 'png');
+                    updateStatus('Image exported successfully');
+                });
+            }
+        }
+        
+        function windowResized() {
+            resizeCanvas(windowWidth - 400, windowHeight);
+            redraw();
+        }
+        
+        // Simple noise function as alternative to p5.js noise
+        function simpleNoise(x, y) {
+            // Simple pseudo-random noise function
+            const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+            return (n - Math.floor(n));
+        }
+    </script>
+</body>
+</html>
